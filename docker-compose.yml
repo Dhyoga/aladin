@@ -1,0 +1,34 @@
+services:
+  aladin:
+    build: .
+    image: aladin:latest
+    restart: always
+    networks:
+      - n8n-compose_default
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      # Nuxt runtimeConfig is overridden only by NUXT_-prefixed env vars
+      - NUXT_DATABASE_PATH=/app/data/aladin.db
+      - NUXT_MEDIA_DIR=/app/data/media
+      - NUXT_N8N_MODE=${N8N_MODE:-live}
+      - NUXT_N8N_BASE_URL=http://n8n:5678
+      - NUXT_APP_INTERNAL_URL=http://aladin:3000
+      - NUXT_SHARED_SECRET=${SHARED_SECRET}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aladin.rule=Host(`aladin.serdadu.dev`)"
+      - "traefik.http.routers.aladin.entrypoints=web,websecure"
+      - "traefik.http.routers.aladin.tls=true"
+      - "traefik.http.routers.aladin.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.aladin.loadbalancer.server.port=3000"
+      # BasicAuth: the app has no login, so this protects the paid API credits
+      - "traefik.http.middlewares.aladin-auth.basicauth.users=${BASIC_AUTH_USERS}"
+      - "traefik.http.routers.aladin.middlewares=aladin-auth"
+
+networks:
+  n8n-compose_default:
+    external: true
