@@ -1,0 +1,24 @@
+# Secrets and local state must never enter the build context
+.env
+.env.*
+!.env.example
+data
+.data
+
+# Rebuilt inside the image
+node_modules
+.nuxt
+.output
+.nitro
+.cache
+dist
+
+# Not needed to build the app
+.git
+.claude
+openspec
+tests
+*.log
+.DS_Store
+.idea
+.fleet

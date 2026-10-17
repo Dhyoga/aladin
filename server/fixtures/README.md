@@ -2,7 +2,9 @@
 
 Files the n8n mock (`server/utils/n8n-mock.ts`) plays back when `NUXT_N8N_MODE=mock`.
 They are read from this folder relative to the project root (the working directory of
-`pnpm dev` and `pnpm preview`). Mock mode is never used in production.
+`pnpm dev` and `pnpm preview`, and `/app` in the Docker image, which copies this folder).
+Mock mode is only used in production for the first deployment (`N8N_MODE=mock`, change
+`deploy-to-vps`); it is switched to `live` once the n8n workflows exist.
 
 | File | Used for | Notes |
 |---|---|---|

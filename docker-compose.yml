@@ -14,10 +14,11 @@ services:
       # Nuxt runtimeConfig is overridden only by NUXT_-prefixed env vars
       - NUXT_DATABASE_PATH=/app/data/aladin.db
       - NUXT_MEDIA_DIR=/app/data/media
+      # `live` unless .env says otherwise; the first deployment sets N8N_MODE=mock
       - NUXT_N8N_MODE=${N8N_MODE:-live}
       - NUXT_N8N_BASE_URL=http://n8n:5678
       - NUXT_APP_INTERNAL_URL=http://aladin:3000
-      - NUXT_SHARED_SECRET=${SHARED_SECRET}
+      - NUXT_SHARED_SECRET=${SHARED_SECRET:?SHARED_SECRET is required (min. 32 characters)}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.aladin.rule=Host(`aladin.serdadu.dev`)"
@@ -25,8 +26,9 @@ services:
       - "traefik.http.routers.aladin.tls=true"
       - "traefik.http.routers.aladin.tls.certresolver=mytlschallenge"
       - "traefik.http.services.aladin.loadbalancer.server.port=3000"
-      # BasicAuth: the app has no login, so this protects the paid API credits
-      - "traefik.http.middlewares.aladin-auth.basicauth.users=${BASIC_AUTH_USERS}"
+      # BasicAuth: the app has no login, so this protects the paid API credits.
+      # Required: an empty value would leave the app open (or break the router).
+      - "traefik.http.middlewares.aladin-auth.basicauth.users=${BASIC_AUTH_USERS:?BASIC_AUTH_USERS is required}"
       - "traefik.http.routers.aladin.middlewares=aladin-auth"
 
 networks:
