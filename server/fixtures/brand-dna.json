@@ -1,0 +1,64 @@
+{
+  "identity": {
+    "name": "Kopi Senja",
+    "website": "https://kopisenja.example",
+    "tagline": "Seduh pelan, nikmati senja.",
+    "summary": "Kopi Senja adalah kedai kopi spesialti yang menyajikan biji kopi lokal Nusantara dengan racikan yang ramah untuk pemula. Fokusnya pada rasa seimbang, harga terjangkau, dan suasana santai untuk bekerja atau berkumpul.",
+    "category": "minuman",
+    "instagramHandle": "@kopisenja"
+  },
+  "audience": {
+    "targetAudience": "Pekerja kantoran dan mahasiswa usia 20-35 tahun yang suka ngopi santai dan mencari tempat nyaman untuk bekerja.",
+    "region": "Indonesia",
+    "painPoints": [
+      "Kopi spesialti terasa mahal dan rumit",
+      "Sulit menemukan tempat ngopi yang tenang untuk bekerja",
+      "Bingung memilih rasa yang cocok"
+    ]
+  },
+  "voice": {
+    "toneOfVoice": "Hangat, santai, dan bersahabat, seperti ngobrol dengan barista langganan.",
+    "addressing": "kamu",
+    "contentLanguage": "id",
+    "emojiLevel": "light",
+    "wordsToUse": ["seduh", "senja", "hangat", "pelan-pelan"],
+    "wordsToAvoid": ["murah banget", "diskon gila-gilaan"]
+  },
+  "offer": {
+    "keyBenefits": [
+      "Biji kopi lokal dengan rasa seimbang",
+      "Harga ramah di kantong",
+      "Tempat nyaman untuk bekerja"
+    ],
+    "features": [
+      {
+        "name": "Single Origin Harian",
+        "description": "Setiap hari ada satu biji kopi lokal pilihan yang diseduh manual.",
+        "tier": "anchor"
+      },
+      {
+        "name": "Wi-Fi Cepat dan Colokan",
+        "description": "Setiap meja punya colokan dan Wi-Fi yang stabil.",
+        "tier": "supporting"
+      },
+      {
+        "name": "Menu Musiman",
+        "description": "Racikan baru tiap bulan yang terinspirasi dari rempah Nusantara.",
+        "tier": "variety"
+      }
+    ],
+    "featureSamplingGuidance": "Utamakan Single Origin Harian. Selingi dengan satu fitur lain agar konten bervariasi.",
+    "defaultCta": "Mampir ke Kopi Senja hari ini",
+    "priceOrPromo": "Mulai dari Rp18.000"
+  },
+  "visual": {
+    "colors": ["#3B2314", "#F4A261", "#FFF8F0"],
+    "fonts": ["Poppins"],
+    "styleKeywords": ["natural light", "hangat", "minimalis"],
+    "avoid": ["neon", "tampilan terlalu ramai"]
+  },
+  "social": {
+    "defaultHashtags": ["#KopiSenja", "#NgopiSantai", "#KopiLokal"]
+  },
+  "notes": "Contoh Brand DNA untuk mock mode. Bukan brand sungguhan."
+}
