@@ -471,7 +471,7 @@ Seluruh bagian ini hanya untuk **VPS**. Lokal tidak memakai Docker. Dockerfile d
 
 Change 7 naik dengan `N8N_MODE=mock` di `.env` VPS, supaya kegagalan infrastruktur (Traefik, TLS, BasicAuth, migrasi, `better-sqlite3`, Range di `/media`) terpisah dari kegagalan n8n. Mode diganti `live` di change 8.
 
-**Catatan VPS** (Ubuntu 24.04, 2 vCPU, RAM 3,6 GB + swap 1,9 GB, dicek 17 Okt 2026): server dipakai bersama. Traefik dan n8n berjalan dari `~/n8n-compose` (mereka juga menaungi situs lain lewat Traefik yang sama), dan ada proyek lain di `$HOME`. Konsekuensinya: jangan restart atau `down` Traefik/n8n, cukup tambah service `aladin` dari `~/aladin`. RAM sempit, jadi `docker build` Nuxt di VPS bisa kehabisan memori dan mengganggu n8n. Strategi build (di VPS dengan batas memori, atau di laptop lalu `docker save | ssh docker load`) ditetapkan di change 7. Node di VPS (nvm) adalah 24 dan tidak ada pnpm, tetapi build memakai Node 22 di dalam image sehingga tidak masalah.
+**Catatan VPS** (Ubuntu 24.04, 2 vCPU, RAM 3,6 GB + swap 1,9 GB, dicek 17 Okt 2026): server dipakai bersama. Traefik dan n8n berjalan dari `~/n8n-compose` (mereka juga menaungi situs lain lewat Traefik yang sama), dan ada proyek lain di `$HOME`. Konsekuensinya: jangan restart atau `down` Traefik/n8n, cukup tambah service `aladin` dari `~/aladin`. RAM sempit, jadi `docker build` Nuxt di VPS berpotensi kehabisan memori dan mengganggu n8n. **Terbukti aman di change 7:** build di VPS memakan 76 detik, memori tersedia turun dari 2.039 MB ke minimum 1.148 MB (swap hanya naik 39 MB), dan container n8n serta Traefik tidak restart. Heap Node di stage build dibatasi 1536 MB. Tetap cek `free -m` sebelum build dan hindari saat n8n menjalankan eksekusi berat. Fallback bila suatu saat OOM: build di laptop (image 249 MB, ~60 detik, keduanya `x86_64`) lalu `docker save aladin:latest | ssh ubuntu@43.157.229.232 docker load` dan `docker compose up -d` tanpa `--build`. Node di VPS (nvm) adalah 24 dan tidak ada pnpm, tetapi build memakai Node 22 di dalam image sehingga tidak masalah.
 
 ### docker-compose.yml (terpisah dari compose n8n)
 
@@ -481,27 +481,43 @@ Lihat file `docker-compose.yml` di root repo. Inti pengaturannya:
 - Nama service `aladin`, sehingga bisa diakses n8n di `http://aladin:3000`.
 - Volume `./data:/app/data`.
 - Label Traefik untuk `aladin.serdadu.dev` dengan certresolver `mytlschallenge` (sama seperti n8n dan paperclip) + middleware BasicAuth.
+- Tidak ada port yang dipublikasikan ke host. `SHARED_SECRET` dan `BASIC_AUTH_USERS` adalah variabel wajib (`${VAR:?pesan}`): compose menolak jalan bila salah satunya kosong, supaya app tidak pernah terbuka tanpa BasicAuth atau berjalan dengan secret default.
 
 ### Dockerfile (garis besar)
 
-- Multi-stage: `build` (node:22-slim + python3/make/g++ untuk better-sqlite3, `pnpm install`, `nuxt build`) → `runner` (node:22-slim, user `node`). Stage build dan runner harus memakai base image yang sama (glibc vs musl), karena binary native better-sqlite3 ikut di-copy.
-- Yang di-copy ke runner: folder `.output/` dan folder migrasi Drizzle (`server/db/migrations/`). Migrasi tidak ikut di-bundle Nitro.
+- Multi-stage: `build` (node:22-slim, pnpm lewat corepack, `pnpm install --frozen-lockfile --ignore-scripts`, `nuxt build`) → `runner` (node:22-slim, user `node`). Stage build dan runner harus memakai base image yang sama (glibc vs musl), karena binary native better-sqlite3 ikut di-copy.
+- **Tanpa toolchain kompilasi dan dengan `--ignore-scripts`.** Tanpa flag itu pnpm menjalankan `node-gyp rebuild` implisit untuk `better-sqlite3` (ada `binding.gyp`, tanpa skrip `install`) dan gagal di image slim karena tidak ada Python. Tidak perlu: loader `better-sqlite3` v13 hanya memuat `prebuilds/<target>.node`, dan `nuxt build` menjalankan `nuxt prepare` sendiri.
+- Yang di-copy ke runner: folder `.output/`, folder migrasi Drizzle (`server/db/migrations/`, tidak ikut di-bundle Nitro), dan `server/fixtures/` (mock mode membacanya relatif ke cwd; tanpa folder ini job mock macet di `running`).
 - Migrasi dijalankan otomatis oleh Nitro plugin `server/plugins/migrate.ts` saat server start.
 - Perintah start: `node .output/server/index.mjs`, dengan `HOST=0.0.0.0` dan `PORT=3000`.
 - Variabel runtime dibaca lewat `runtimeConfig`, sehingga di container harus memakai prefix `NUXT_` (mis. `NUXT_SHARED_SECRET`). docker-compose.yml sudah memetakannya dari `.env`.
 
 ### Langkah di VPS
 
+Sekali saja, di VPS (`ubuntu`, uid 1000, jadi `data/` otomatis bisa ditulis container):
+
 ```bash
-git clone <repo> ~/aladin && cd ~/aladin
-cp .env.example .env            # isi SHARED_SECRET & BASIC_AUTH_USERS
-mkdir -p data && sudo chown -R 1000:1000 data
-docker compose up -d --build
-# Workflow n8n tidak di-import manual: dibuat Claude Code lewat MCP (change 8 dan 9).
-# Yang manual: buat 2 credential di n8n (Google AI, Aladin Secret), lalu ganti N8N_MODE=live.
+git clone https://github.com/Dhyoga/aladin.git ~/aladin && cd ~/aladin
+umask 077
+printf 'SHARED_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env   # jangan ditampilkan atau dikirim ke chat
+openssl passwd -apr1                                           # password diketik di prompt; hanya hash-nya yang dipakai
+echo "BASIC_AUTH_USERS='admin:<hash>'" >> .env                 # kutip TUNGGAL (hash berisi banyak $)
+echo 'N8N_MODE=mock' >> .env                                   # ganti ke live di change 8
+mkdir -p data
 ```
 
-Pastikan DNS `aladin.serdadu.dev` sudah mengarah ke IP VPS sebelum container naik, agar sertifikat TLS dari Let's Encrypt bisa terbit.
+Setiap deploy, dari laptop (tidak ada kode yang diedit di VPS):
+
+```bash
+git push origin main
+ssh ubuntu@43.157.229.232 'cd ~/aladin && git pull --ff-only && docker compose up -d --build'
+```
+
+`docker compose` hanya dijalankan di `~/aladin`, jadi tidak menyentuh container n8n dan Traefik. Workflow n8n tidak di-import manual: dibuat Claude Code lewat MCP (change 8 dan 9). Yang manual: 2 credential di n8n (`Google AI`, `Aladin Secret`, nilai yang sama dengan `SHARED_SECRET`), lalu `N8N_MODE=live`.
+
+Pastikan DNS `aladin.serdadu.dev` sudah mengarah ke IP VPS sebelum container naik, agar sertifikat TLS dari Let's Encrypt bisa terbit. Sertifikat diterbitkan pada request pertama ke domain (sekitar beberapa detik).
+
+**Hasil verifikasi change 7** (17 Okt 2026): dari container sementara di network `n8n-compose_default`, `http://aladin:3000` terjangkau (prasyarat change 8); `/api/n8n/callback` dan `/api/internal/*` menjawab 401 untuk secret salah atau kosong, 400 untuk secret benar dengan body kosong (autentikasi lolos), dan 404 untuk request ber-`X-Forwarded-Host`. Lewat domain publik, semua path tanpa login dijawab 401 oleh BasicAuth, HTTP di-redirect ke HTTPS, dan sertifikat Let's Encrypt valid.
 
 ### .env.example
 
@@ -510,9 +526,10 @@ Pastikan DNS `aladin.serdadu.dev` sudah mengarah ke IP VPS sebelum container nai
 ```
 # --- VPS (dibaca docker-compose) ---
 SHARED_SECRET=ganti-dengan-random-32-char
-# htpasswd -nb admin passwordmu  → tempel hasilnya di dalam tanda kutip tunggal
+# openssl passwd -apr1  → tempel admin:<hash> di dalam tanda kutip tunggal
 BASIC_AUTH_USERS='admin:$apr1$xxxx$yyyy'
-N8N_MODE=live
+# `mock` untuk deploy pertama; ganti ke `live` setelah workflow n8n ada
+N8N_MODE=mock
 
 # --- Lokal (opsional, dibaca Nuxt saat pnpm dev) ---
 # NUXT_N8N_MODE=mock
